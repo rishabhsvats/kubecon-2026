@@ -1,0 +1,1208 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Client Authentication Demo</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #10141b;
+      --panel: #18202b;
+      --panel-alt: #222e3c;
+      --text: #e9edf3;
+      --muted: #a7b2c1;
+      --accent: #7bc6ff;
+      --good: #6be495;
+      --bad: #ff8a8a;
+      --border: #2f3e51;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #162131, var(--bg) 55%);
+      color: var(--text);
+    }
+    main {
+      max-width: 1050px;
+      margin: 0 auto;
+      padding: 2rem 1rem 3rem;
+    }
+    h1 { margin-top: 0; }
+    p { color: var(--muted); }
+    .layout {
+      margin-top: 1rem;
+      display: grid;
+      grid-template-columns: 250px 1fr;
+      gap: 1rem;
+      align-items: start;
+    }
+    .sidebar {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: linear-gradient(180deg, #151d28, #121a24);
+      padding: 0.9rem;
+      position: sticky;
+      top: 1rem;
+    }
+    .sidebar h2 {
+      margin: 0 0 0.55rem;
+      font-size: 1rem;
+    }
+    .sidebar p {
+      margin: 0 0 0.7rem;
+      font-size: 0.9rem;
+    }
+    .nav-group-title {
+      margin: 0.85rem 0 0.2rem;
+      font-size: 0.8rem;
+      color: #b9ddff;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 700;
+    }
+    .nav-group-break {
+      margin-top: 2.1rem;
+    }
+    .nav-group-end {
+      margin-bottom: 0.9rem;
+    }
+    .nav-btn {
+      width: 100%;
+      text-align: left;
+      margin-top: 0.45rem;
+      background: linear-gradient(180deg, #31455d, #253446);
+    }
+    .nav-btn.active {
+      background: linear-gradient(180deg, #3b89c7, #2a5f8f);
+      border: 1px solid #5aa8e8;
+    }
+    .content {
+      min-width: 0;
+    }
+    .scenario-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .scenario-card {
+      background: linear-gradient(180deg, var(--panel), var(--panel-alt));
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1rem;
+    }
+    .scenario-card h2 {
+      margin: 0 0 0.6rem;
+      font-size: 1.05rem;
+    }
+    .hint {
+      color: var(--muted);
+      font-size: 0.93rem;
+    }
+    button {
+      cursor: pointer;
+      background: linear-gradient(180deg, #3799e8, #2a78b8);
+      color: white;
+      border: 0;
+      border-radius: 8px;
+      padding: 0.58rem 0.85rem;
+      margin-top: 0.8rem;
+      font-weight: 600;
+    }
+    button:hover { filter: brightness(1.1); }
+    .secondary {
+      background: linear-gradient(180deg, #34506f, #273c54);
+    }
+    .action-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+      margin-top: 0.8rem;
+    }
+    .action-row button {
+      margin-top: 0;
+    }
+    .diagram-toggle {
+      margin-top: 0.8rem;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #101a28;
+      overflow: hidden;
+    }
+    .diagram-toggle summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 0.6rem 0.75rem;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #b9ddff;
+      background: #142030;
+    }
+    .diagram-toggle summary::-webkit-details-marker {
+      display: none;
+    }
+    .diagram-wrap {
+      padding: 0.55rem;
+      border-top: 1px solid var(--border);
+      background: #ffffff;
+      overflow-x: hidden;
+    }
+    .diagram-wrap .plantuml {
+      width: 100%;
+      max-width: 100%;
+      color: #111827;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      white-space: pre;
+      display: block;
+      margin: 0;
+      border: 0;
+      background: transparent;
+      padding: 0;
+      min-height: 0;
+    }
+    .diagram-wrap .plantuml svg {
+      background: #ffffff;
+      border-radius: 8px;
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      height: auto;
+    }
+    #scenario4-diagram {
+      display: flex;
+      justify-content: center;
+    }
+    #scenario4-diagram svg {
+      width: auto;
+      max-width: 100%;
+      margin: 0 auto;
+    }
+    pre {
+      margin-top: 1.2rem;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #0e141d;
+      color: #cee8ff;
+      padding: 1rem;
+      overflow-x: auto;
+      min-height: 150px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .badge {
+      display: inline-block;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      padding: 0.2rem 0.55rem;
+      margin-left: 0.3rem;
+      border: 1px solid var(--border);
+      background: #1e2a3b;
+      color: var(--muted);
+    }
+    .code-section {
+      margin-top: 0.9rem;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.7rem;
+      background: #101a28;
+    }
+    .code-title {
+      margin: 0 0 0.6rem;
+      font-size: 0.85rem;
+      color: #b9ddff;
+      font-weight: 600;
+    }
+    .code-section pre {
+      margin: 0;
+      min-height: 0;
+      font-size: 0.74rem;
+      line-height: 1.35;
+    }
+    .dump-section {
+      margin-top: 0.9rem;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.7rem;
+      background: #101a28;
+    }
+    .dump-title {
+      margin: 0 0 0.6rem;
+      font-size: 0.85rem;
+      color: #b9ddff;
+      font-weight: 600;
+    }
+    .dump-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.6rem;
+    }
+    .dump-box h4 {
+      margin: 0 0 0.3rem;
+      font-size: 0.78rem;
+      color: #cfd9e8;
+      font-weight: 600;
+    }
+    .dump-box pre {
+      margin: 0;
+      min-height: 120px;
+      font-size: 0.74rem;
+      line-height: 1.35;
+    }
+    .hidden {
+      position: absolute;
+      left: -9999px;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+    }
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+      .sidebar {
+        position: static;
+      }
+      .dump-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .success { color: var(--good); }
+    .error { color: var(--bad); }
+
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Keycloak Client Authentication Scenarios</h1>
+    <p>
+      This app demonstrates Keycloak client authentication scenarios using client secrets, Kubernetes service-account
+      tokens, and SPIFFE JWT-SVID assertions.
+    </p>
+    <div class="layout">
+      <aside class="sidebar">
+        <h2>Scenario Navigation</h2>
+        <p class="nav-group-title">Client Secret</p>
+        <button id="navScenario1" data-scenario="1" class="nav-btn">User Authentication flow with Client secret</button>
+        <button id="navScenario4" data-scenario="4" class="nav-btn nav-group-end">Client authentication using client secret</button>
+        <p class="nav-group-title nav-group-break">K8s Token</p>
+        <button id="navK8sWellKnown" data-scenario="5" class="nav-btn">Kubernetes Well-Known Endpoint</button>
+        <button id="navScenario2" data-scenario="2" class="nav-btn">Client credentials using k8s token</button>
+        <button id="navScenario3" data-scenario="3" class="nav-btn nav-group-end">User Authentication flow with k8s token</button>
+        <p class="nav-group-title nav-group-break">SPIFFE</p>
+        <button id="navScenario6" data-scenario="6" class="nav-btn">Client credentials using SPIFFE JWT-SVID</button>
+        <button id="navScenario7" data-scenario="7" class="nav-btn">User Authentication flow with SPIFFE JWT-SVID</button>
+      </aside>
+      <div class="content">
+        <div class="scenario-list">
+      <section id="scenario1-section" class="scenario-card" data-scenario="1">
+        <h2>User auth flow with client secret <span class="badge">auth code</span></h2>
+        <p class="hint">
+          Browser redirects to Keycloak for login. Backend exchanges code for tokens with
+          <code>client_secret</code>.
+        </p>
+        <details id="scenario1-diagram-toggle" class="diagram-toggle">
+          <summary>Show sequence diagram</summary>
+          <div class="diagram-wrap">
+            <pre id="scenario1-diagram" class="plantuml">@startuml
+autonumber
+
+skinparam backgroundColor #FFFFFF
+skinparam sequenceGroupBackgroundColor #FFFFFF
+skinparam sequenceGroupBorderThickness 1.5
+
+skinparam actor {
+  BackgroundColor #EEEDFE
+  BorderColor #534AB7
+  FontColor #3C3489
+}
+
+skinparam participant {
+  BackgroundColor #E6F1FB
+  BorderColor #185FA5
+  FontColor #0C447C
+}
+
+actor User
+participant "Web App" as App
+participant "Keycloak" as KC
+
+
+group #FFFDE7 Authorization Request [<color:#856404>Authorization Request</color>]
+  User -> App : Click Login
+  App -> KC : Authorization Request (response_type=code)
+  KC -> User : Login Page
+  User -> KC : Username + Password
+  KC --> App : Authorization Code
+end
+
+group #E3F2FD Secret Fetch [<color:#0C3B6E>Secret Fetch</color>]
+  App -> App : Fetch client_secret
+end
+
+group #E8F5E9 Code to Token [<color:#1B5E20>Token Request</color>]
+  App -> KC : POST /token (authorization_code + client_secret)
+  KC -> KC : Validate client_secret
+  KC --> App : Access Token + ID Token
+end
+
+App -> App : Decode and display JWT
+
+@enduml</pre>
+          </div>
+        </details>
+        <button id="scenario1">Start Flow</button>
+        <section class="code-section">
+          <h3 class="code-title">Pseudo code</h3>
+          <pre>browser.redirect(auth_endpoint, client_id=web-secret-client)
+
+code = callback.code
+
+POST /token
+  grant_type=authorization_code
+  code=...
+  redirect_uri=.../callback-secret
+  client_id=web-secret-client
+  client_secret=***</pre>
+        </section>
+        <section class="dump-section">
+          <h3 class="dump-title">Token Endpoint Request / Response Dump</h3>
+          <div class="dump-grid">
+            <div class="dump-box">
+              <h4>Request sent to Keycloak token endpoint</h4>
+              <pre id="scenario1RequestDump">No request captured yet.</pre>
+            </div>
+            <div class="dump-box">
+              <h4>Response received from Keycloak</h4>
+              <pre id="scenario1ResponseDump">No response captured yet.</pre>
+            </div>
+          </div>
+        </section>
+      </section>
+      <section id="scenario2-section" class="scenario-card" data-scenario="2">
+        <h2>Client authentication using k8s service account token<span class="badge">machine to machine</span></h2>
+        <p class="hint">
+          Backend reads projected Kubernetes service account token and uses it as
+          <code>client_assertion</code>.
+        </p>
+        <details id="scenario2-diagram-toggle" class="diagram-toggle">
+          <summary>Show sequence diagram</summary>
+          <div class="diagram-wrap">
+            <pre id="scenario2-diagram" class="plantuml">@startuml
+autonumber
+
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontSize 13
+
+skinparam participant {
+  BackgroundColor #E6F1FB
+  BorderColor #185FA5
+  FontColor #0C447C
+}
+
+participant "Web App" as App
+participant "Keycloak" as KC
+participant "K8s API Server" as K8s
+
+group #E3F2FD SA Token Fetch [<color:#0C3B6E>SA Token Fetch</color>]
+  App -> K8s : Fetch projected SA token
+  K8s --> App : Kubernetes SA JWT
+end
+
+group #E8F5E9 Token Request [<color:#1B5E20>Token Request</color>]
+  App -> KC : POST /token (client_credentials + client_assertion=SA JWT)
+  KC -> K8s : Fetch JWKS via OIDC Discovery
+  K8s --> KC : Public signing keys
+  note over App, K8s #FFF9C4
+    No client_secret!
+  end note
+  KC -> KC : Validate JWT signature + claims
+  KC --> App : Access Token
+end
+
+App -> App : Decode and display JWT
+
+@enduml</pre>
+          </div>
+        </details>
+        <div class="action-row">
+          <button id="scenario2">Start Flow</button>
+          <button id="scenario2DecodeAssertion" class="secondary">Decode Client Assertion</button>
+        </div>
+        <section class="code-section">
+          <h3 class="code-title">Pseudo code</h3>
+          <pre>sa_jwt = read("/var/run/secrets/tokens/kctoken")
+
+POST /token
+  grant_type=client_credentials
+  client_assertion_type=jwt-bearer
+  client_assertion=sa_jwt
+
+# no browser redirect
+# no user login</pre>
+        </section>
+        <section class="dump-section">
+          <h3 class="dump-title">Token Endpoint Request / Response Dump</h3>
+          <div class="dump-grid">
+            <div class="dump-box">
+              <h4>Request sent to Keycloak token endpoint</h4>
+              <pre id="scenario2RequestDump">No request captured yet.</pre>
+            </div>
+            <div class="dump-box">
+              <h4>Response received from Keycloak</h4>
+              <pre id="scenario2ResponseDump">No response captured yet.</pre>
+            </div>
+          </div>
+        </section>
+      </section>
+      <section id="scenario3-section" class="scenario-card" data-scenario="3">
+        <h2>User auth flow with k8s service account token <span class="badge">auth code</span></h2>
+        <p class="hint">
+          User authenticates in browser, backend exchanges code with
+          <code>client_assertion</code> built from the service account token.
+        </p>
+        <details id="scenario3-diagram-toggle" class="diagram-toggle">
+          <summary>Show sequence diagram</summary>
+          <div class="diagram-wrap">
+            <pre id="scenario3-diagram" class="plantuml">@startuml
+autonumber
+
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontSize 13
+
+skinparam actor {
+  BackgroundColor #EEEDFE
+  BorderColor #534AB7
+  FontColor #3C3489
+}
+
+skinparam participant {
+  BackgroundColor #E6F1FB
+  BorderColor #185FA5
+  FontColor #0C447C
+}
+
+actor User
+participant "Web App" as App
+participant "Keycloak" as KC
+participant "K8s API Server" as K8s
+
+group #FFFDE7 Authorization Request [<color:#856404>Authorization Request</color>]
+  User -> App : Click Login
+  App -> KC : Authorization Request (response_type=code)
+  KC -> User : Login Page
+  User -> KC : Username + Password
+  KC --> App : Authorization Code
+end
+
+group #E3F2FD SA Token Fetch [<color:#0C3B6E>SA Token Fetch</color>]
+  App -> K8s : Fetch projected SA token
+  K8s --> App : Kubernetes SA JWT
+end
+
+group #E8F5E9 Code to Token [<color:#1B5E20>Token Request</color>]
+  App -> KC : POST /token (authorization_code + client_assertion=SA JWT)
+  KC -> K8s : Fetch JWKS via OIDC Discovery
+  K8s --> KC : Public signing keys
+  note over User, K8s #FFF9C4
+    No client_secret needed!
+  end note
+  KC -> KC : Validate JWT signature + claims
+  KC --> App : Access Token + ID Token
+end
+
+App -> App : Decode and display JWT
+
+@enduml</pre>
+          </div>
+        </details>
+        <div class="action-row">
+          <button id="scenario3">Start Flow</button>
+          <button id="scenario3DecodeAssertion" class="secondary">Decode Client Assertion</button>
+        </div>
+        <section class="code-section">
+          <h3 class="code-title">Pseudo code</h3>
+          <pre>browser.redirect(auth_endpoint, client_id=web-k8s-client)
+
+code = callback.code
+sa_jwt = read("/var/run/secrets/tokens/kctoken")
+
+POST /token
+  grant_type=authorization_code
+  code=...
+  redirect_uri=.../callback-k8s
+  client_assertion_type=jwt-bearer
+  client_assertion=sa_jwt</pre>
+        </section>
+        <section class="dump-section">
+          <h3 class="dump-title">Token Endpoint Request / Response Dump</h3>
+          <div class="dump-grid">
+            <div class="dump-box">
+              <h4>Request sent to Keycloak token endpoint</h4>
+              <pre id="scenario3RequestDump">No request captured yet.</pre>
+            </div>
+            <div class="dump-box">
+              <h4>Response received from Keycloak</h4>
+              <pre id="scenario3ResponseDump">No response captured yet.</pre>
+            </div>
+          </div>
+        </section>
+      </section>
+      <section id="scenario4-section" class="scenario-card" data-scenario="4">
+        <h2>Client authentication using client secret <span class="badge">machine to machine</span></h2>
+        <p class="hint">
+          Web app calls Keycloak token endpoint using <code>client_credentials</code> and
+          <code>client_secret</code>.
+        </p>
+        <details id="scenario4-diagram-toggle" class="diagram-toggle">
+          <summary>Show sequence diagram</summary>
+          <div class="diagram-wrap">
+            <pre id="scenario4-diagram" class="plantuml">@startuml
+autonumber
+
+skinparam backgroundColor #FFFFFF
+
+skinparam participant {
+  BackgroundColor #E6F1FB
+  BorderColor #185FA5
+  FontColor #0C447C
+}
+
+participant "Web App" as App
+participant "Keycloak" as KC
+
+group #E8F5E9 Token Request [<color:#1B5E20>Token Request</color>]
+  App -> KC : POST /token (client_credentials & client_secret)
+  note over KC #E8F5E9 : Validate client_secret
+  KC --> App : Access Token
+end
+
+App -> App : Decode and display JWT
+
+@enduml</pre>
+          </div>
+        </details>
+        <button id="scenario4">Start Flow</button>
+        <section class="code-section">
+          <h3 class="code-title">Pseudo code</h3>
+          <pre>client_secret = read("k8s secret")
+
+POST /token
+  grant_type=client_credentials
+  client_id=web-secret-client
+  client_secret=client_secret
+
+access_token = response.access_token</pre>
+        </section>
+        <section class="dump-section">
+          <h3 class="dump-title">Token Endpoint Request / Response Dump</h3>
+          <div class="dump-grid">
+            <div class="dump-box">
+              <h4>Request sent to Keycloak token endpoint</h4>
+              <pre id="scenario4RequestDump">No request captured yet.</pre>
+            </div>
+            <div class="dump-box">
+              <h4>Response received from Keycloak</h4>
+              <pre id="scenario4ResponseDump">No response captured yet.</pre>
+            </div>
+          </div>
+        </section>
+      </section>
+      <section id="scenario5-section" class="scenario-card" data-scenario="5">
+        <h2>Kubernetes Well-Known Endpoint</h2>
+        <p class="hint">
+          Loads <code>https://kubernetes.default.svc.cluster.local/.well-known/openid-configuration</code> from the pod
+          and shows the response plus decoded projected service-account JWT.
+        </p>
+        <button id="loadK8sWellKnown">Load Kubernetes Well-Known</button>
+        <section class="dump-section">
+          <h3 class="dump-title">Kubernetes OIDC Well-Known Response</h3>
+          <pre id="k8sWellKnownResponse">No response loaded yet.</pre>
+        </section>
+        <section class="dump-section">
+          <h3 class="dump-title">Decoded Kubernetes Service Account JWT</h3>
+          <pre id="k8sDecodedJwt">No JWT decoded yet.</pre>
+        </section>
+      </section>
+      <section id="scenario6-section" class="scenario-card" data-scenario="6">
+        <h2>Client authentication using SPIFFE JWT-SVID <span class="badge">machine to machine</span></h2>
+        <p class="hint">
+          Backend reads a JWT-SVID minted by SPIRE for this workload and sends it as
+          <code>client_assertion</code> with Keycloak's SPIFFE assertion type.
+        </p>
+        <details id="scenario6-diagram-toggle" class="diagram-toggle">
+          <summary>Show sequence diagram</summary>
+          <div class="diagram-wrap">
+            <pre id="scenario6-diagram" class="plantuml">@startuml
+autonumber
+
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontSize 13
+
+skinparam participant {
+  BackgroundColor #E6F1FB
+  BorderColor #185FA5
+  FontColor #0C447C
+}
+
+participant "Web App Pod" as App
+participant "SPIRE Agent" as Agent
+participant "SPIRE Server" as Server
+participant "Keycloak" as KC
+
+group #E3F2FD JWT-SVID Fetch [<color:#0C3B6E>Workload API</color>]
+  App -> Agent : fetch jwt-svid (aud=Keycloak realm)
+  Agent -> Server : attest workload + check registration entry
+  Server --> Agent : issue JWT-SVID (sub=spiffe://example.org/myclient)
+  Agent --> App : JWT-SVID
+end
+
+group #E8F5E9 Token Request [<color:#1B5E20>SPIFFE grant</color>]
+  App -> KC : POST /token (client_credentials + jwt-spiffe assertion)
+  KC -> Server : GET SPIFFE bundle endpoint
+  Server --> KC : JWT bundle keys
+  KC -> KC : Validate JWT-SVID signature + claims
+  KC --> App : Access Token
+end
+
+App -> App : Decode and display JWT
+
+@enduml</pre>
+          </div>
+        </details>
+        <div class="action-row">
+          <button id="scenario6">Start Flow</button>
+          <button id="scenario6DecodeAssertion" class="secondary">Decode SPIFFE JWT-SVID</button>
+        </div>
+        <section class="code-section">
+          <h3 class="code-title">Pseudo code</h3>
+          <pre>jwt_svid = read("/var/run/secrets/spiffe/jwt-svid.json")
+
+POST /token
+  grant_type=client_credentials
+  client_assertion_type=jwt-spiffe
+  client_assertion=jwt_svid
+
+access_token = response.access_token</pre>
+        </section>
+        <section class="dump-section">
+          <h3 class="dump-title">Token Endpoint Request / Response Dump</h3>
+          <div class="dump-grid">
+            <div class="dump-box">
+              <h4>Request sent to Keycloak token endpoint</h4>
+              <pre id="scenario6RequestDump">No request captured yet.</pre>
+            </div>
+            <div class="dump-box">
+              <h4>Response received from Keycloak</h4>
+              <pre id="scenario6ResponseDump">No response captured yet.</pre>
+            </div>
+          </div>
+        </section>
+      </section>
+      <section id="scenario7-section" class="scenario-card" data-scenario="7">
+        <h2>User auth flow with SPIFFE JWT-SVID <span class="badge">auth code</span></h2>
+        <p class="hint">
+          User authenticates in browser, backend exchanges code with
+          <code>client_assertion</code> built from a SPIFFE JWT-SVID.
+        </p>
+        <details id="scenario7-diagram-toggle" class="diagram-toggle">
+          <summary>Show sequence diagram</summary>
+          <div class="diagram-wrap">
+            <pre id="scenario7-diagram" class="plantuml">@startuml
+autonumber
+
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontSize 13
+
+skinparam actor {
+  BackgroundColor #EEEDFE
+  BorderColor #534AB7
+  FontColor #3C3489
+}
+
+skinparam participant {
+  BackgroundColor #E6F1FB
+  BorderColor #185FA5
+  FontColor #0C447C
+}
+
+actor User
+participant "Web App Pod" as App
+participant "SPIRE Agent" as Agent
+participant "SPIRE Server" as Server
+participant "Keycloak" as KC
+
+group #E3F2FD JWT-SVID Fetch [<color:#0C3B6E>Workload API</color>]
+  App -> Agent : fetch jwt-svid (aud=Keycloak realm)
+  Agent -> Server : attest workload + registration entry
+  Server --> Agent : issue JWT-SVID
+  Agent --> App : JWT-SVID
+end
+
+group #FFFDE7 Authorization Request [<color:#856404>Authorization Request</color>]
+  User -> App : Click Login
+  App -> KC : Authorization Request + User Login
+  KC --> App : Authorization Code
+end
+
+group #E8F5E9 Code to Token [<color:#1B5E20>Token Request</color>]
+  App -> KC : POST /token (authorization_code + jwt-spiffe assertion)
+  KC -> Server : GET SPIFFE bundle endpoint
+  Server --> KC : JWT bundle keys
+  KC --> App : Access Token + ID Token (after JWT-SVID validation)
+end
+
+App -> App : Decode and display JWT
+
+@enduml</pre>
+          </div>
+        </details>
+        <div class="action-row">
+          <button id="scenario7">Start Flow</button>
+          <button id="scenario7DecodeAssertion" class="secondary">Decode SPIFFE JWT-SVID</button>
+        </div>
+        <section class="code-section">
+          <h3 class="code-title">Pseudo code</h3>
+          <pre>browser.redirect(auth_endpoint, client_id=spiffe-client)
+
+code = callback.code
+jwt_svid = read("/var/run/secrets/spiffe/jwt-svid.json")
+
+POST /token
+  grant_type=authorization_code
+  code=...
+  redirect_uri=.../callback-spiffe
+  client_assertion_type=jwt-spiffe
+  client_assertion=jwt_svid</pre>
+        </section>
+        <section class="dump-section">
+          <h3 class="dump-title">Token Endpoint Request / Response Dump</h3>
+          <div class="dump-grid">
+            <div class="dump-box">
+              <h4>Request sent to Keycloak token endpoint</h4>
+              <pre id="scenario7RequestDump">No request captured yet.</pre>
+            </div>
+            <div class="dump-box">
+              <h4>Response received from Keycloak</h4>
+              <pre id="scenario7ResponseDump">No response captured yet.</pre>
+            </div>
+          </div>
+        </section>
+      </section>
+    </div>
+    <section id="decodedAccessTokenSection" class="code-section">
+      <h3 class="code-title">Decoded access token</h3>
+      <pre id="output">Waiting for action...</pre>
+    </section>
+      </div>
+    </div>
+  </main>
+  <script>
+    const output = document.getElementById("output");
+    const plantUmlImageFallbackBaseUrl = "https://www.plantuml.com/plantuml/svg/~h";
+    const decodedAccessTokenSection = document.getElementById("decodedAccessTokenSection");
+    const k8sWellKnownResponse = document.getElementById("k8sWellKnownResponse");
+    const k8sDecodedJwt = document.getElementById("k8sDecodedJwt");
+    const scenarioSections = document.querySelectorAll(".scenario-card[data-scenario]");
+    const scenarioList = document.querySelector(".scenario-list");
+    const navButtons = Array.from(document.querySelectorAll(".nav-btn[data-scenario]"));
+    const diagramToggles = [
+      { toggleId: "scenario1-diagram-toggle", diagramId: "scenario1-diagram", rendered: false },
+      { toggleId: "scenario2-diagram-toggle", diagramId: "scenario2-diagram", rendered: false },
+      { toggleId: "scenario3-diagram-toggle", diagramId: "scenario3-diagram", rendered: false },
+      { toggleId: "scenario4-diagram-toggle", diagramId: "scenario4-diagram", rendered: false },
+      { toggleId: "scenario6-diagram-toggle", diagramId: "scenario6-diagram", rendered: false },
+      { toggleId: "scenario7-diagram-toggle", diagramId: "scenario7-diagram", rendered: false }
+    ];
+    // Save original diagram source before any rendering overwrites it
+    diagramToggles.forEach(item => {
+      item.source = document.getElementById(item.diagramId).textContent;
+    });
+    let config;
+    let scenarioSecrets;
+
+    async function fetchRenderedDiagramSvg(item) {
+      if (item.svg) {
+        return item.svg;
+      }
+      if (item.renderPromise) {
+        return item.renderPromise;
+      }
+      const source = item.source;
+      item.renderPromise = (async () => {
+      const imageHtml = await renderPlantUmlImageFallback(source);
+      item.svg = imageHtml;
+      item.rendered = true;
+      return imageHtml;
+      })();
+      try {
+        return await item.renderPromise;
+      } finally {
+        item.renderPromise = null;
+      }
+    }
+
+    async function renderSequenceDiagram(diagramId) {
+      const item = diagramToggles.find(i => i.diagramId === diagramId);
+      const el = document.getElementById(diagramId);
+      if (!item || !el) {
+        return;
+      }
+      if (!item.svg) {
+        el.textContent = "Rendering sequence diagram...";
+      }
+      try {
+        const imageHtml = await fetchRenderedDiagramSvg(item);
+        el.innerHTML = imageHtml;
+      } catch (fallbackError) {
+        el.textContent = `Unable to render diagram: ${fallbackError.message}`;
+        throw fallbackError;
+      }
+    }
+
+    function toHex(bytes) {
+      return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    }
+
+    function buildPlantUmlHexUrl(source) {
+      const encoded = new TextEncoder().encode(source);
+      return `${plantUmlImageFallbackBaseUrl}${toHex(encoded)}`;
+    }
+
+    async function renderPlantUmlImageFallback(source) {
+      return new Promise((resolve, reject) => {
+        const image = new Image();
+        image.alt = "PlantUML sequence diagram";
+        image.style.display = "block";
+        image.style.width = "100%";
+        image.style.maxWidth = "100%";
+        image.style.height = "auto";
+        image.onload = () => {
+          resolve(image.outerHTML);
+        };
+        image.onerror = () => {
+          reject(new Error("PlantUML image render failed"));
+        };
+        image.referrerPolicy = "no-referrer";
+        image.src = buildPlantUmlHexUrl(source);
+      });
+    }
+
+    function preloadDiagramsInBackground() {
+      const preload = async () => {
+        for (const item of diagramToggles) {
+          try {
+            await fetchRenderedDiagramSvg(item);
+          } catch (_error) {
+            // Keep UI usable even if background preload fails.
+          }
+        }
+      };
+      if (window.requestIdleCallback) {
+        window.requestIdleCallback(() => { preload(); }, { timeout: 2500 });
+        return;
+      }
+      setTimeout(() => { preload(); }, 500);
+    }
+    
+    function print(value, isError) {
+      output.className = isError ? "error" : "success";
+      output.textContent = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+    }
+
+    function decodeJwtPayload(jwt) {
+      if (typeof jwt !== "string") {
+        return null;
+      }
+      const parts = jwt.split(".");
+      if (parts.length < 2) {
+        return null;
+      }
+      const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+      const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+      const json = atob(padded);
+      return JSON.parse(json);
+    }
+
+    function enrichWithDecodedAccessToken(result) {
+      if (typeof result.access_token !== "string") {
+        const fallback = { ...result };
+        delete fallback.tokenEndpointDump;
+        return fallback;
+      }
+      try {
+        return decodeJwtPayload(result.access_token);
+      } catch (error) {
+        return {
+          error: "cannot_decode_access_token",
+          details: error.message
+        };
+      }
+    }
+
+    async function loadConfig() {
+      const response = await fetch("/api/config");
+      config = await response.json();
+    }
+
+    async function loadScenarioSecrets() {
+      if (scenarioSecrets) {
+        return scenarioSecrets;
+      }
+      const response = await fetch("/api/scenario-secrets");
+      scenarioSecrets = await response.json();
+      return scenarioSecrets;
+    }
+
+    async function startUserAuthFlow(kind) {
+      const scenario =
+        kind === "secret"
+          ? config.scenarios.userAuthClientSecret
+          : kind === "k8s"
+            ? config.scenarios.userAuthK8sServiceAccount
+            : config.scenarios.userAuthSpiffe;
+      const callback = `${window.location.origin}${scenario.callbackPath}`;
+      const state = crypto.randomUUID();
+      sessionStorage.setItem("demo-auth-state", state);
+      const authUrl = new URL(config.authorizationEndpoint);
+      authUrl.searchParams.set("client_id", scenario.clientId);
+      authUrl.searchParams.set("response_type", "code");
+      authUrl.searchParams.set("scope", "openid profile");
+      authUrl.searchParams.set("redirect_uri", callback);
+      authUrl.searchParams.set("state", state);
+      window.location.href = authUrl.toString();
+    }
+
+    async function runScenario2() {
+      print("Running scenario 2...");
+      const response = await fetch("/api/token/client-credentials-k8s", { method: "POST" });
+      const result = await response.json();
+      updateScenarioDump(2, result.tokenEndpointDump);
+      const display = enrichWithDecodedAccessToken(result);
+      print(display, !response.ok);
+    }
+
+    async function runScenario4() {
+      print("Running scenario 4...");
+      const response = await fetch("/api/token/client-credentials-secret", { method: "POST" });
+      const result = await response.json();
+      updateScenarioDump(4, result.tokenEndpointDump);
+      const display = enrichWithDecodedAccessToken(result);
+      print(display, !response.ok);
+    }
+
+    async function runScenario6() {
+      print("Running scenario 6...");
+      const response = await fetch("/api/token/client-credentials-spiffe", { method: "POST" });
+      const result = await response.json();
+      updateScenarioDump(6, result.tokenEndpointDump);
+      const display = enrichWithDecodedAccessToken(result);
+      print(display, !response.ok);
+    }
+
+    async function decodeClientAssertionToken(scenarioNumber) {
+      try {
+        const secrets = await loadScenarioSecrets();
+        const scenarioData =
+          scenarioNumber === 2
+            ? secrets.scenario2
+            : scenarioNumber === 3
+              ? secrets.scenario3
+              : scenarioNumber === 6
+                ? secrets.scenario6
+                : secrets.scenario7;
+        const token = scenarioData?.kubernetesServiceAccountToken || scenarioData?.spiffeJwtSvid;
+        if (typeof token !== "string" || token.length === 0) {
+          const isSpiffeScenario = scenarioNumber === 6 || scenarioNumber === 7;
+          const label = isSpiffeScenario ? "SPIFFE JWT-SVID" : "Kubernetes service account token";
+          const reason =
+            isSpiffeScenario && typeof scenarioData?.spiffeReadError === "string"
+              ? ` (${scenarioData.spiffeReadError})`
+              : "";
+          print(`${label} is not available${reason}.`, true);
+          return;
+        }
+        const decoded = decodeJwtPayload(token);
+        if (!decoded) {
+          const label = (scenarioNumber === 6 || scenarioNumber === 7) ? "SPIFFE JWT-SVID" : "Kubernetes service account token";
+          print(`Unable to decode ${label}.`, true);
+          return;
+        }
+        print(decoded, false);
+      } catch (error) {
+        print(`Unable to decode client assertion token: ${error.message}`, true);
+      }
+    }
+
+    async function loadKubernetesWellKnown() {
+      k8sWellKnownResponse.textContent = "Loading Kubernetes well-known endpoint...";
+      k8sDecodedJwt.textContent = "Decoding projected service-account JWT...";
+      try {
+        const response = await fetch("/api/k8s-well-known");
+        const payload = await response.json();
+        if (!response.ok) {
+          k8sWellKnownResponse.textContent = JSON.stringify(payload, null, 2);
+          k8sDecodedJwt.textContent = "Unable to decode JWT because endpoint call failed.";
+          return;
+        }
+        k8sWellKnownResponse.textContent = JSON.stringify({
+          endpoint: payload.endpoint,
+          response: payload.wellKnownResponse,
+        }, null, 2);
+        k8sDecodedJwt.textContent = JSON.stringify(payload.decodedServiceAccountJwt, null, 2);
+      } catch (error) {
+        k8sWellKnownResponse.textContent = `Unable to load Kubernetes well-known endpoint: ${error.message}`;
+        k8sDecodedJwt.textContent = "Unable to decode JWT.";
+      }
+    }
+
+    function updateScenarioDump(scenarioNumber, tokenEndpointDump) {
+      const requestEl = document.getElementById(`scenario${scenarioNumber}RequestDump`);
+      const responseEl = document.getElementById(`scenario${scenarioNumber}ResponseDump`);
+      if (!requestEl || !responseEl) {
+        return;
+      }
+      if (!tokenEndpointDump) {
+        requestEl.textContent = "Token endpoint request dump not available.";
+        responseEl.textContent = "Token endpoint response dump not available.";
+        return;
+      }
+      requestEl.textContent = JSON.stringify(tokenEndpointDump.request, null, 2);
+      responseEl.textContent = JSON.stringify(tokenEndpointDump.response, null, 2);
+    }
+
+    function selectScenario(which) {
+      const selected = String(which);
+      scenarioSections.forEach((section) => {
+        section.classList.toggle("hidden", section.dataset.scenario !== selected);
+      });
+      decodedAccessTokenSection.classList.toggle("hidden", selected === "5");
+      navButtons.forEach((button) => {
+        button.classList.toggle("active", button.dataset.scenario === selected);
+      });
+
+      // If <details> is already open on the newly visible scenario, render now
+      const scenarioPrefix = `scenario${selected}-`;
+      const item = diagramToggles.find((candidate) => candidate.diagramId.startsWith(scenarioPrefix));
+      if (!item) {
+        return;
+      }
+      const toggle = document.getElementById(item.toggleId);
+      if (toggle && toggle.open) {
+        renderSequenceDiagram(item.diagramId)
+          .catch((error) => print(`Unable to render diagram: ${error.message}`, true));
+      }
+    }
+
+    async function handleCallback() {
+      const params = new URLSearchParams(window.location.search);
+      if (!params.has("code")) {
+        return;
+      }
+
+      const code = params.get("code");
+      const state = params.get("state");
+      const expected = sessionStorage.getItem("demo-auth-state");
+      if (state !== expected) {
+        print("Invalid state returned from Keycloak", true);
+        return;
+      }
+
+      const callbackPath = window.location.pathname;
+      const callbackConfig =
+        callbackPath === "/callback-secret"
+          ? { scenario: 1, endpoint: "/api/token/client-secret", authLabel: "client secret" }
+          : callbackPath === "/callback-k8s"
+            ? { scenario: 3, endpoint: "/api/token/k8s-authcode", authLabel: "service account assertion" }
+            : callbackPath === "/callback-spiffe"
+              ? { scenario: 7, endpoint: "/api/token/spiffe-authcode", authLabel: "SPIFFE JWT-SVID assertion" }
+              : null;
+      if (!callbackConfig) {
+        print(`Unknown callback path: ${callbackPath}`, true);
+        return;
+      }
+      selectScenario(callbackConfig.scenario);
+      const endpoint = callbackConfig.endpoint;
+      print(`Exchanging code using ${callbackConfig.authLabel}...`);
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code,
+          redirectUri: window.location.origin + window.location.pathname
+        })
+      });
+      const result = await response.json();
+      updateScenarioDump(callbackConfig.scenario, result.tokenEndpointDump);
+      const display = enrichWithDecodedAccessToken(result);
+      print(display, !response.ok);
+
+      const clean = window.location.origin + "/";
+      window.history.replaceState({}, "", clean);
+    }
+
+    document.getElementById("scenario1").addEventListener("click", () => startUserAuthFlow("secret"));
+    document.getElementById("scenario2").addEventListener("click", runScenario2);
+    document.getElementById("scenario2DecodeAssertion").addEventListener("click", () => decodeClientAssertionToken(2));
+    document.getElementById("scenario3").addEventListener("click", () => startUserAuthFlow("k8s"));
+    document.getElementById("scenario3DecodeAssertion").addEventListener("click", () => decodeClientAssertionToken(3));
+    document.getElementById("scenario4").addEventListener("click", runScenario4);
+    document.getElementById("scenario6").addEventListener("click", runScenario6);
+    document.getElementById("scenario6DecodeAssertion").addEventListener("click", () => decodeClientAssertionToken(6));
+    document.getElementById("scenario7").addEventListener("click", () => startUserAuthFlow("spiffe"));
+    document.getElementById("scenario7DecodeAssertion").addEventListener("click", () => decodeClientAssertionToken(7));
+    document.getElementById("loadK8sWellKnown").addEventListener("click", loadKubernetesWellKnown);
+    navButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const selected = Number(button.dataset.scenario);
+        selectScenario(selected);
+        document
+          .getElementById(`scenario${selected}-section`)
+          .scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+    diagramToggles.forEach((item) => {
+      const toggle = document.getElementById(item.toggleId);
+      toggle.addEventListener("toggle", async () => {
+        if (!toggle.open) return;
+        // Skip if section is hidden — selectScenario will trigger render
+        const section = toggle.closest(".scenario-card");
+        if (section && section.classList.contains("hidden")) return;
+
+        try {
+          await renderSequenceDiagram(item.diagramId);
+        } catch (error) {
+          print(`Unable to render diagram: ${error.message}`, true);
+        }
+      });
+    });
+
+    (async () => {
+      try {
+        const preferredOrder = ["1", "4", "2", "3", "6", "7", "5"];
+        preferredOrder.forEach((scenario) => {
+          const section = document.getElementById(`scenario${scenario}-section`);
+          if (section) {
+            scenarioList.appendChild(section);
+          }
+        });
+        await loadConfig();
+        const callbackScenario =
+          window.location.pathname === "/callback-k8s"
+            ? 3
+            : window.location.pathname === "/callback-spiffe"
+              ? 7
+            : window.location.pathname === "/callback-secret"
+              ? 1
+              : 1;
+        selectScenario(callbackScenario);
+        preloadDiagramsInBackground();
+        await handleCallback();
+      } catch (error) {
+        print(`Application error: ${error.message}`, true);
+      }
+    })();
+  </script>
+</body>
+</html>

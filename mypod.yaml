@@ -1,0 +1,171 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: my-serviceaccount
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-pod
+  labels:
+    app: auth-demo-app
+spec:
+  nodeName: AGENT_NODE_NAME
+  serviceAccountName: my-serviceaccount
+  containers:
+  - name: auth-demo-app
+    image: node:20-alpine
+    command:
+    - node
+    - /app/server.js
+    env:
+    - name: KEYCLOAK_URL
+      value: https://KEYCLOAK_HOST
+    - name: APP_URL
+      value: https://APP_HOST
+    - name: REALM
+      value: kubernetes
+    - name: SECRET_CLIENT_ID
+      value: web-secret-client
+    - name: SECRET_CLIENT_SECRET
+      value: demo-client-secret
+    - name: K8S_CODE_CLIENT_ID
+      value: web-k8s-client
+    - name: CLIENT_CREDENTIALS_CLIENT_ID
+      value: myclient
+    - name: SPIFFE_CODE_CLIENT_ID
+      value: spiffe-client
+    - name: TOKEN_PATH
+      value: /var/run/secrets/tokens/kctoken
+    - name: SPIFFE_JWT_SVID_PATH
+      value: /var/run/secrets/spiffe/jwt-svid.json
+    ports:
+    - containerPort: 8080
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+    volumeMounts:
+    - mountPath: /app
+      name: app-code
+    - mountPath: /var/run/secrets/tokens
+      name: vault-token
+    - mountPath: /var/run/secrets/spiffe
+      name: spiffe-jwt-svid
+  - name: spiffe-svid-fetcher
+    image: node:20-alpine
+    command:
+    - /bin/sh
+    - -c
+    - |
+      set -u
+      mkdir -p /var/run/secrets/spiffe
+      printf '{"error":"jwt_svid_not_fetched_yet"}\n' > /var/run/secrets/spiffe/jwt-svid.json
+      echo "Installing curl/tar..."
+      apk add --no-cache curl tar
+      SPIRE_VERSION=1.13.3
+      SPIRE_DIR="/tmp/spire-${SPIRE_VERSION}"
+      while true; do
+        if [ ! -x "${SPIRE_DIR}/bin/spire-agent" ]; then
+          echo "Downloading SPIRE agent binary..."
+          printf '{"status":"downloading_spire_agent_binary"}\n' > /var/run/secrets/spiffe/jwt-svid.json
+          curl -fL --connect-timeout 10 --max-time 180 \
+            --retry 5 --retry-delay 3 --retry-max-time 240 \
+            "https://github.com/spiffe/spire/releases/download/v${SPIRE_VERSION}/spire-${SPIRE_VERSION}-linux-amd64-musl.tar.gz" \
+            -o /tmp/spire.tar.gz 2>/var/run/secrets/spiffe/jwt-svid.err
+          CURL_EXIT=$?
+          if [ $CURL_EXIT -eq 0 ] && tar xzf /tmp/spire.tar.gz -C /tmp 2>>/var/run/secrets/spiffe/jwt-svid.err; then
+            rm -f /tmp/spire.tar.gz /var/run/secrets/spiffe/jwt-svid.err
+          else
+            if [ -f /var/run/secrets/spiffe/jwt-svid.err ]; then
+              ERROR_TEXT=$(tr '\n' ' ' < /var/run/secrets/spiffe/jwt-svid.err | sed 's/"/\\"/g')
+            else
+              ERROR_TEXT="curl or tar failed without stderr output"
+            fi
+            printf '{"error":"spire_binary_download_failed","details":"%s"}\n' "$ERROR_TEXT" > /var/run/secrets/spiffe/jwt-svid.json
+            echo "SPIRE binary download failed: $ERROR_TEXT"
+            sleep 20
+            continue
+          fi
+        fi
+        echo "Fetching JWT-SVID from SPIRE workload API..."
+        if "${SPIRE_DIR}/bin/spire-agent" api fetch jwt \
+          -socketPath /run/spire/sockets/agent.sock \
+          -output json \
+          -audience "https://KEYCLOAK_HOST/realms/kubernetes" \
+          > /var/run/secrets/spiffe/jwt-svid.json.tmp \
+          2> /var/run/secrets/spiffe/jwt-svid.err; then
+          mv /var/run/secrets/spiffe/jwt-svid.json.tmp /var/run/secrets/spiffe/jwt-svid.json
+          rm -f /var/run/secrets/spiffe/jwt-svid.err
+        else
+          ERROR_TEXT=$(tr '\n' ' ' < /var/run/secrets/spiffe/jwt-svid.err | sed 's/"/\\"/g')
+          printf '{"error":"jwt_svid_fetch_failed","details":"%s"}\n' "$ERROR_TEXT" > /var/run/secrets/spiffe/jwt-svid.json
+          echo "JWT-SVID fetch failed: $ERROR_TEXT"
+        fi
+        sleep 20
+      done
+    volumeMounts:
+    - mountPath: /run/spire/sockets
+      name: spire-agent-socket
+      readOnly: true
+    - mountPath: /var/run/secrets/spiffe
+      name: spiffe-jwt-svid
+    resources:
+      requests:
+        cpu: 20m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+  volumes:
+  - name: app-code
+    configMap:
+      name: auth-demo-app
+  - name: vault-token
+    projected:
+      sources:
+      - serviceAccountToken:
+          path: kctoken
+          expirationSeconds: 600
+          audience: https://KEYCLOAK_HOST/realms/kubernetes
+  - name: spire-agent-socket
+    hostPath:
+      path: /run/spire/sockets
+      type: DirectoryOrCreate
+  - name: spiffe-jwt-svid
+    emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-demo-app
+spec:
+  selector:
+    app: auth-demo-app
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: auth-demo-app
+spec:
+  tls:
+  - hosts:
+    - APP_HOST
+  rules:
+  - host: APP_HOST
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: auth-demo-app
+            port:
+              number: 8080

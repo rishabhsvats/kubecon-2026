@@ -1,0 +1,115 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spire-server-config
+data:
+  server.conf: |
+    server {
+      bind_address = "0.0.0.0"
+      bind_port = "8081"
+      trust_domain = "example.org"
+      data_dir = "/run/spire/data/server"
+      log_level = "DEBUG"
+      ca_ttl = "168h"
+      default_x509_svid_ttl = "48h"
+
+      federation {
+        bundle_endpoint {
+          address = "0.0.0.0"
+          port = 8543
+          profile "https_web" {
+            serving_cert_file {
+              cert_file_path = "/run/spire/tls/tls.crt"
+              key_file_path = "/run/spire/tls/tls.key"
+              file_sync_interval = "1h"
+            }
+          }
+        }
+      }
+    }
+
+    plugins {
+      DataStore "sql" {
+        plugin_data {
+          database_type = "sqlite3"
+          connection_string = "/run/spire/data/server/datastore.sqlite3"
+        }
+      }
+
+      KeyManager "disk" {
+        plugin_data {
+          keys_path = "/run/spire/data/server/keys.json"
+        }
+      }
+
+      NodeAttestor "join_token" {
+        plugin_data {}
+      }
+    }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spire-server
+spec:
+  selector:
+    app: spire-server
+  ports:
+  - name: grpc
+    port: 8081
+    targetPort: 8081
+  - name: bundle
+    port: 8543
+    targetPort: 8543
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spire-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spire-server
+  template:
+    metadata:
+      labels:
+        app: spire-server
+    spec:
+      containers:
+      - name: spire-server
+        image: ghcr.io/spiffe/spire-server:1.13.3
+        command:
+        - /opt/spire/bin/spire-server
+        args:
+        - run
+        - -config
+        - /run/spire/config/server.conf
+        ports:
+        - containerPort: 8081
+        - containerPort: 8543
+        volumeMounts:
+        - mountPath: /run/spire/config
+          name: config
+          readOnly: true
+        - mountPath: /run/spire/data/server
+          name: data
+        - mountPath: /run/spire/tls
+          name: bundle-tls
+          readOnly: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+      volumes:
+      - name: config
+        configMap:
+          name: spire-server-config
+      - name: data
+        emptyDir: {}
+      - name: bundle-tls
+        secret:
+          secretName: spire-bundle-tls

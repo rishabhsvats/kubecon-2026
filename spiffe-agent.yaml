@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spire-agent-config
+data:
+  agent.conf: |
+    agent {
+      data_dir = "/run/spire/data/agent"
+      log_level = "DEBUG"
+      server_address = "spire-server"
+      server_port = "8081"
+      socket_path = "/run/spire/sockets/agent.sock"
+      trust_domain = "example.org"
+    }
+
+    plugins {
+      NodeAttestor "join_token" {
+        plugin_data {}
+      }
+
+      KeyManager "disk" {
+        plugin_data {
+          directory = "/run/spire/data/agent"
+        }
+      }
+
+      WorkloadAttestor "unix" {
+        plugin_data {}
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spire-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spire-agent
+  template:
+    metadata:
+      labels:
+        app: spire-agent
+    spec:
+      hostPID: true
+      containers:
+      - name: spire-agent
+        image: ghcr.io/spiffe/spire-agent:1.13.3
+        command:
+        - /opt/spire/bin/spire-agent
+        args:
+        - run
+        - -config
+        - /run/spire/config/agent.conf
+        - -joinToken
+        - $(SPIRE_AGENT_JOIN_TOKEN)
+        - -insecureBootstrap
+        env:
+        - name: SPIRE_AGENT_JOIN_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: spire-agent-join-token
+              key: token
+        volumeMounts:
+        - mountPath: /run/spire/config
+          name: config
+          readOnly: true
+        - mountPath: /run/spire/data/agent
+          name: data
+        - mountPath: /run/spire/sockets
+          name: sockets
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
+      volumes:
+      - name: config
+        configMap:
+          name: spire-agent-config
+      - name: data
+        emptyDir: {}
+      - name: sockets
+        hostPath:
+          path: /run/spire/sockets
+          type: DirectoryOrCreate
