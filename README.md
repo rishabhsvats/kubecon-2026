@@ -1,6 +1,4 @@
-# Client Authentication with Kubernetes Service Accounts demo
-
-Forked this project from : https://github.com/keycloak/keycloak-playground/tree/main/federated-client-authentication
+# Federated Client Authentication demo (Kubernetes + SPIFFE)
 
 ## Prerequisites
 
@@ -37,6 +35,24 @@ deployment steps.
 To deploy Keycloak run `create-keycloak.sh`. This script will deploy a very basic instance of Keycloak with an
 ingress so Keycloak can be accessed outside the cluster.
 
+## Deploy SPIRE components for SPIFFE
+
+To enable the SPIFFE scenario in-cluster, deploy SPIRE Server and SPIRE Agent:
+
+* `chmod +x create-spiffe.sh`
+* `./create-spiffe.sh`
+
+This script:
+
+* creates a TLS cert for the SPIFFE bundle endpoint
+* deploys SPIRE Server and SPIRE Agent in Kubernetes
+* registers `spiffe://example.org/myclient` for the workload selector `unix:uid:0`
+* exposes the SPIRE agent socket on `/run/spire/sockets/agent.sock` (mounted into the demo pod)
+
+If Keycloak is already running, restart it so it picks up the SPIFFE bundle certificate mount:
+
+* `kubectl rollout restart statefulset/keycloak`
+
 ## Configuring Keycloak
 
 The demo requires setting up a realm in Keycloak, with Kubernetes and SPIFFE identity providers, and clients configured
@@ -56,26 +72,8 @@ This deploys:
 * a sidecar that fetches a SPIFFE JWT-SVID from SPIRE and stores it at `/var/run/secrets/spiffe/jwt-svid.json`
 * a service and ingress for the application
 
-The projected token audience matches `https://KEYCLOAK_HOST/realms/kubernetes`, which is required when using
+The projected Kubernetes token audience matches `https://KEYCLOAK_HOST/realms/kubernetes`, which is required when using
 Kubernetes service accounts as client assertions.
-
-## Deploy SPIRE components for SPIFFE
-
-To enable the SPIFFE scenario in-cluster, deploy SPIRE Server and SPIRE Agent:
-
-* `chmod +x create-spiffe.sh`
-* `./create-spiffe.sh`
-
-This script:
-
-* creates a TLS cert for the SPIFFE bundle endpoint
-* deploys SPIRE Server and SPIRE Agent in Kubernetes
-* registers `spiffe://example.org/myclient` for the workload selector `unix:uid:0`
-* exposes the SPIRE agent socket on `/run/spire/sockets/agent.sock` (mounted into the demo pod)
-
-If Keycloak is already running, restart it so it picks up the SPIFFE bundle certificate mount:
-
-* `kubectl rollout restart statefulset/keycloak`
 
 ## Demo scenarios
 
@@ -93,9 +91,15 @@ The app demonstrates:
 3. **User authentication + Kubernetes service account**  
    Authorization code flow where token endpoint client authentication uses `client_assertion` from the projected
    Kubernetes service account token.
-4. **Client credentials + SPIFFE JWT-SVID**  
+4. **Client credentials + client secret**  
+   Client credentials flow where token endpoint client authentication uses `client_secret`.
+5. **Kubernetes well-known endpoint + decoded JWT view**  
+   A dedicated tab that calls Kubernetes `/.well-known/openid-configuration` and shows the decoded token used for that call.
+6. **Client credentials + SPIFFE JWT-SVID**  
    Client credentials flow where token endpoint client authentication uses `client_assertion_type=jwt-spiffe` with
    a JWT-SVID minted by SPIRE for the workload.
+7. **User authentication + SPIFFE JWT-SVID**  
+   Authorization code flow where token endpoint client authentication uses `client_assertion_type=jwt-spiffe`.
 
 ## Notes
 
@@ -103,9 +107,10 @@ The app demonstrates:
   accept the certificate warning before starting the scenarios.
 * Client IDs created by `configure-keycloak.sh`:
   * `web-secret-client`
-  * `myclient`
   * `web-k8s-client`
   * `spiffe-client`
+* `spiffe-client` is intentionally used for both SPIFFE flows (client credentials and authorization code) to avoid
+  duplicate federated-jwt matcher collisions.
 * The demo client secret is `demo-client-secret` and is only used server-side inside the pod.
 
 ## Validate ingress reachability (rootless podman)
@@ -124,30 +129,3 @@ grant, as this flow does not require a user to authenticate and can be done as a
 Run the script `client-credential-grant.sh` this will grab the service account token and do a client credential grant
 request to Keycloak.
 
-## Presentation Materials
-
-For presenting this demo, three documents are available:
-
-* **`SLIDES.md`** - Minimal presentation deck (~20 slides) ready to copy into Google Slides or any presentation tool
-  * Problem statement and motivation
-  * Technical deep dive on federated JWT authentication
-  * Architecture and demo walkthrough
-  * Security best practices and roadmap
-  
-* **`SPEAKER_NOTES.md`** - Detailed speaker notes for each slide
-  * Timing estimates (30-minute talk)
-  * Key talking points and analogies
-  * Live demo script
-  * Q&A preparation with likely questions
-  
-* **`PRESENTATION_PROJECT_DOCUMENT.md`** - Comprehensive reference guide
-  * Detailed explanations of all concepts
-  * Full slide content with alternatives
-  * Technical background and troubleshooting
-  * References and further reading
-
-**Recommended flow for presenters:**
-1. Review `PRESENTATION_PROJECT_DOCUMENT.md` for deep understanding
-2. Copy `SLIDES.md` content into your presentation template
-3. Use `SPEAKER_NOTES.md` during practice and delivery
-4. Run through the live demo scenarios 2-3 times before presenting
