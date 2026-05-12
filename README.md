@@ -1,5 +1,7 @@
 # Client Authentication with Kubernetes Service Accounts demo
 
+Forked this project from : https://github.com/keycloak/keycloak-playground/tree/main/federated-client-authentication
+
 ## Prerequisites
 
 * Linux
