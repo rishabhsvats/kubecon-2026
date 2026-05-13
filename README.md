@@ -1,6 +1,6 @@
 # Federated Client Authentication demo (Kubernetes + SPIFFE)
 
-Cloned this project from [keycloak-playground](https://github.com/keycloak/keycloak-playground/tree/main/federated-client-authentication).
+Cloned this project from [keycloak-playground](https://github.com/keycloak/keycloak-playground/tree/main/federated-client-authentication) and added features.
 
 ## Prerequisites
 
